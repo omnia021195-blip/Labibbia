@@ -5,49 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LaBibbia - Pozzallo</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background-color: #000; color: #fff; font-family: 'Courier New', Courier, monospace; }
+        body { background-color: #000; color: #fff; font-family: 'Courier New', monospace; }
         .glow { text-shadow: 0 0 10px #ffcc00; }
         .border-gold { border: 1px solid #ffcc00; }
     </style>
 </head>
-<body class="p-4">
+<body class="p-4 bg-black">
     <div id="welcome" class="fixed inset-0 bg-black flex flex-col justify-center items-center z-50 p-6 text-center">
         <h1 class="text-3xl font-bold text-yellow-500 mb-4 glow">VUOI GIOCARE, POZZALLO?</h1>
-        <p class="mb-8 text-sm leading-relaxed">Il sistema ha rilevato la tua posizione.<br>Ogni segreto ha un prezzo. Sei pronto a pagare?</p>
-        <button onclick="document.getElementById('welcome').style.display='none'" class="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3 px-8 rounded-full transition-all">
-            ENTRA NEL PECCATO
-        </button>
+        <button onclick="document.getElementById('welcome').style.display='none'" class="bg-yellow-600 text-black font-bold py-3 px-8 rounded-full">ENTRA NEL PECCATO</button>
     </div>
 
     <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold tracking-widest text-yellow-500">LABIBBIA</h2>
-        <div class="flex items-center gap-2">
-            <span class="block w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
-            <span class="text-xs">1.240 ONLINE</span>
-        </div>
+        <h2 class="text-xl font-bold text-yellow-500">LABIBBIA</h2>
+        <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span><span class="text-xs uppercase">Live</span></div>
     </div>
 
-    <div class="space-y-4">
-        <div class="border-gold p-4 rounded-lg bg-zinc-900 shadow-lg">
-            <div class="text-xs text-yellow-500 mb-2">#PZ_001 - ORE 21:30</div>
-            <p class="text-sm mb-4">Qualcuno è uscito ora dal solito hotel sulla litoranea... la macchina è una tedesca grigia. La moglie pensa sia a calcetto.</p>
-            <div class="flex items-center gap-4">
-                <button onclick="this.querySelector('.count').innerText++" class="flex items-center gap-1 text-sm bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
-                    🔥 <span class="count">892</span> BRUCIA
-                </button>
-                <div class="text-xs text-zinc-500 italic">👁️ 43 spiano ora</div>
-            </div>
-        </div>
+    <div id="feed" class="space-y-4"></div>
 
-        <div class="border-gold p-4 rounded-lg bg-zinc-900 opacity-80">
-            <div class="text-xs text-yellow-500 mb-2">#PZ_002 - RISERVATO</div>
-            <p class="text-sm mb-4">Foto caricata. Analisi nitidezza in corso... 45%</p>
-            <div class="w-full bg-zinc-800 h-1 mb-4">
-                <div class="bg-yellow-500 h-1" style="width: 45%"></div>
-            </div>
-            <button class="text-xs text-yellow-500 underline">Porta al 100% per sbloccare</button>
-        </div>
-    </div>
+    <script>
+        // Collegamento al tuo database specifico
+        const supabaseUrl = 'https://xwnvpswxmlspzfdtzxmf.supabase.co';
+        const supabaseKey = 'sb_publishable_p_Ap7Vfqbsw_rRHr2v1wcw_hmhDkwVK';
+        const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function caricaSegreti() {
+            const { data, error } = await _supabase.from('segreti').select('*').order('created_at', { ascending: false });
+            if (error) { console.log("Errore:", error); return; }
+            
+            const container = document.getElementById('feed');
+            container.innerHTML = data.map(s => `
+                <div class="border-gold p-4 rounded-lg bg-zinc-900 shadow-lg mb-4">
+                    <div class="text-xs text-yellow-500 mb-2 uppercase">#SEGRETO - ${new Date(s.created_at).toLocaleTimeString()}</div>
+                    <p class="text-sm mb-4">${s.Testo}</p>
+                    <button onclick="brucia('${s.id}', ${s.fuochi})" class="flex items-center gap-1 text-sm bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
+                        🔥 <span>${s.fuochi || 0}</span> BRUCIA
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function brucia(id, current) {
+            await _supabase.from('segreti').update({ fuochi: parseInt(current) + 1 }).eq('id', id);
+            caricaSegreti();
+        }
+
+        caricaSegreti();
+    </script>
 </body>
 </html>
