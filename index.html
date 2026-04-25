@@ -15,43 +15,85 @@
 <body class="p-4 bg-black">
     <div id="welcome" class="fixed inset-0 bg-black flex flex-col justify-center items-center z-50 p-6 text-center">
         <h1 class="text-3xl font-bold text-yellow-500 mb-4 glow">VUOI GIOCARE, POZZALLO?</h1>
-        <button onclick="document.getElementById('welcome').style.display='none'" class="bg-yellow-600 text-black font-bold py-3 px-8 rounded-full">ENTRA NEL PECCATO</button>
+        <p class="mb-8 text-zinc-400 text-sm">Il sistema è collegato. Ogni segreto ha un prezzo.</p>
+        <button onclick="document.getElementById('welcome').style.display='none'" class="bg-yellow-600 text-black font-bold py-3 px-8 rounded-full shadow-lg">
+            ENTRA NEL PECCATO
+        </button>
     </div>
 
     <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-yellow-500">LABIBBIA</h2>
-        <div class="flex items-center gap-2"><span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span><span class="text-xs uppercase">Live</span></div>
+        <h2 class="text-xl font-bold text-yellow-500 tracking-tighter">LABIBBIA</h2>
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+            <span class="text-xs uppercase font-bold">LIVE</span>
+        </div>
     </div>
 
-    <div id="feed" class="space-y-4"></div>
+    <div id="feed" class="space-y-4">
+        <p class="text-center text-zinc-600 animate-pulse">In ascolto del database...</p>
+    </div>
 
     <script>
-        // Collegamento al tuo database specifico
+        // Configurazione Supabase
         const supabaseUrl = 'https://xwnvpswxmlspzfdtzxmf.supabase.co';
         const supabaseKey = 'sb_publishable_p_Ap7Vfqbsw_rRHr2v1wcw_hmhDkwVK';
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
         async function caricaSegreti() {
-            const { data, error } = await _supabase.from('segreti').select('*').order('created_at', { ascending: false });
-            if (error) { console.log("Errore:", error); return; }
-            
+            // Scarica i dati dalla tabella "Scrivi segreti"
+            const { data, error } = await _supabase
+                .from('Scrivi segreti')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Errore caricamento:", error);
+                document.getElementById('feed').innerHTML = `<p class="text-red-500 text-xs">Errore di connessione al database.</p>`;
+                return;
+            }
+
             const container = document.getElementById('feed');
+            
+            if (data.length === 0) {
+                container.innerHTML = `<p class="text-zinc-500 text-center text-sm italic">Nessun segreto ancora rivelato. Sii il primo.</p>`;
+                return;
+            }
+
             container.innerHTML = data.map(s => `
-                <div class="border-gold p-4 rounded-lg bg-zinc-900 shadow-lg mb-4">
-                    <div class="text-xs text-yellow-500 mb-2 uppercase">#SEGRETO - ${new Date(s.created_at).toLocaleTimeString()}</div>
-                    <p class="text-sm mb-4">${s.Testo}</p>
-                    <button onclick="brucia('${s.id}', ${s.fuochi})" class="flex items-center gap-1 text-sm bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
-                        🔥 <span>${s.fuochi || 0}</span> BRUCIA
-                    </button>
+                <div class="border-gold p-4 rounded-lg bg-zinc-900 shadow-xl mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-[10px] text-yellow-500 uppercase font-bold">#SEGRETO_${s.id}</div>
+                        <div class="text-[10px] text-zinc-500">${new Date(s.created_at).toLocaleTimeString()}</div>
+                    </div>
+                    <p class="text-sm leading-relaxed text-zinc-200">${s.Testo}</p>
+                    <div class="mt-4 flex items-center gap-4">
+                        <button onclick="brucia('${s.id}', ${s.fuochi || 0})" class="flex items-center gap-2 text-xs bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-full border border-zinc-700 transition-all">
+                            🔥 <span>${s.fuochi || 0}</span> BRUCIA
+                        </button>
+                    </div>
                 </div>
             `).join('');
         }
 
         async function brucia(id, current) {
-            await _supabase.from('segreti').update({ fuochi: parseInt(current) + 1 }).eq('id', id);
-            caricaSegreti();
+            // Aggiorna il numero di fuochi
+            const { error } = await _supabase
+                .from('Scrivi segreti')
+                .update({ fuochi: parseInt(current) + 1 })
+                .eq('id', id);
+            
+            if (!error) caricaSegreti();
         }
 
+        // Realtime: ricarica se ci sono cambiamenti nel database
+        _supabase
+            .channel('db-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'Scrivi segreti' }, () => {
+                caricaSegreti();
+            })
+            .subscribe();
+
+        // Caricamento iniziale
         caricaSegreti();
     </script>
 </body>
